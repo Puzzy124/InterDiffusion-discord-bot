@@ -6,7 +6,7 @@ from discord.ext import commands
 from discord import app_commands
 import random
 
-proxy: str     = None # set proxy url here
+proxy          = None # set proxy url here
 TOKEN: str     = None # bot token to run bot on 
 
 async def generate_image(prompt: str, negative: str = "", seed: int = None, steps: int = 15) -> str:
@@ -39,7 +39,6 @@ async def generate_image(prompt: str, negative: str = "", seed: int = None, step
                 for obj in urls:
                     if "http" in obj:
                         return obj # url found
-                    
 
 ########################################################################
 #Credits to .puzzy.                                                    #
@@ -51,19 +50,43 @@ async def generate_image(prompt: str, negative: str = "", seed: int = None, step
 #setup discord bot and run it
 intents        = discord.Intents.default()
 intents.message_content = True
-client         = discord.Client(intents=intents)
-tree           = app_commands.CommandTree(client)
+client         = commands.Bot(intents=intents, command_prefix='/')
 
 
-class DeleteButton(discord.ui.View):
-    def __init__(self, interaction):
+class ImageButtons(discord.ui.View):
+    def __init__(self, interaction, prompt, negative, seed, steps):
         super().__init__(timeout=None)
         self.interaction = interaction
+        self.prompt = prompt
+        self.negative = negative
+        self.seed = seed
+        self.steps = steps
+        self.regenerating = False
 
-    @discord.ui.button(label="Delete", style=discord.ButtonStyle.danger)
+    @discord.ui.button(label="🗑️ Delete", style=discord.ButtonStyle.danger)
     async def delete_callback(self, interaction: discord.Interaction, button: discord.ui.Button):
         await self.interaction.delete_original_response()
-        
+
+    @discord.ui.button(label="🔄 Regenerate", style=discord.ButtonStyle.primary)
+    async def regenerate_callback(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if self.regenerating:
+            await interaction.response.send_message("The image is already being regenerated. Please wait.", ephemeral=True)
+            return
+
+        self.regenerating = True
+        await interaction.response.defer()
+        new_seed = random.randint(1, 1000)
+        image_url = await generate_image(self.prompt, self.negative, new_seed, self.steps)
+        if image_url:
+            embed = discord.Embed(title=f"Generated Image For {interaction.user.name}", color=discord.Color.random(), url=image_url, colour=discord.Color.dark_blue(), description=f"✍️ Prompt: {self.prompt}")
+            embed.set_image(url=image_url)
+            embed.set_footer(text='👑 Made by .puzzy. with 💖')
+            await interaction.edit_original_response(embed=embed)
+        else:
+            await interaction.edit_original_response(embed=discord.Embed(title="Uh oh!", color=discord.Color.random(), description='Something went wrong, try again later.').set_footer(text='Made by .puzzy. with 💖'))
+        self.regenerating = False
+
+
 @client.tree.command(
     name="imagine",
     description="Use InterDiffusion-4.0 To Create An Image!",
@@ -90,14 +113,14 @@ async def first_command(interaction: discord.Interaction, prompt: str, negative:
         embed.set_image(url=image_url)
         embed.set_footer(text='👑 Made by .puzzy. with 💖')
         
-        view = DeleteButton(interaction)
+        view = ImageButtons(interaction, prompt, negative, seed, steps)
         await interaction.edit_original_response(embed=embed, view=view)
     else:
         await interaction.edit_original_response(embed=discord.Embed(title="Uh oh!",color=discord.Color.random(),description='Something went wrong, try again later.').set_footer(text='Made by .puzzy. with 💖'))
 
 @client.event
 async def on_ready():
-    await tree.sync()
+    await client.tree.sync()
     print("Ready!")
 
 client.run(TOKEN)
