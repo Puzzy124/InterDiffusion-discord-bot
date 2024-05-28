@@ -20,9 +20,8 @@ A Python Discord Bot using Discord.py to generate images with AnyAI's new InterD
 
 1. Install the required libraries: pip install -r requirements.txt
 2. Open `main.py` and fill in the following variables:
-- `server_id`: The ID of the server you want to clone.
 - `bot_token`: Your Discord bot token.
-- `proxy` (optional): Proxy server URL if needed.
+- `proxy` (optional): Proxy server URL if you want, NOT needed, just recommended.
 
 ## Usage
 
