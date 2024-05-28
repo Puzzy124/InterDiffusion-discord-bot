@@ -2,11 +2,13 @@
 
 A Python Discord Bot using Discord.py to generate images with AnyAI's new InterDiffusion-4.0 model!
 
-# Warning
-May not work for some spaces if their data is different from the one i used to rev but if anyway one wants to, feel free to make a pr and fix this somehow
 ## Features
 
 - Easy to set up and run
+- Cache system to prevent spam
+- Simple & Custom rate limiting system, also to prevent spam.
+- Regenerate and Delete buttons.
+- Customize seed, negative / positive prompt, and steps.
 
 ## Prerequisites
 
