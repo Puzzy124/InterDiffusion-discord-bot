@@ -1,14 +1,35 @@
-import aiohttp
-import secrets
-import re
-import discord
+from collections import defaultdict
 from discord.ext import commands
 from discord import app_commands
+from aiocache import cached
+import discord
+import aiohttp
+import secrets
 import random
+import time
+import re
 
-proxy          = None # set proxy url here
+proxy          =  None # set proxy url here
 TOKEN: str     = None # bot token to run bot on 
 
+
+# custom rate limit (ik discord sdk has one but this cooler)
+global last_reset, request_count
+request_count = defaultdict(int)
+last_reset = time.monotonic()
+def check_rate_limit(user):
+    global last_reset, request_count
+    current_time = time.monotonic()
+    elapsed_time = current_time - last_reset
+    if elapsed_time >= 60:
+        request_count.clear()
+        last_reset = current_time
+    request_count[user] += 1
+    if request_count[user] > 5: # 5 requests a minute for rate limit, change as you like.
+        return False
+    return True
+        
+@cached() # cache 
 async def generate_image(prompt: str, negative: str = "", seed: int = None, steps: int = 15) -> str:
     """
     Args:
@@ -69,22 +90,25 @@ class ImageButtons(discord.ui.View):
 
     @discord.ui.button(label="🔄 Regenerate", style=discord.ButtonStyle.primary)
     async def regenerate_callback(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if self.regenerating:
-            await interaction.response.send_message("The image is already being regenerated. Please wait.", ephemeral=True)
-            return
+        if check_rate_limit(interaction.user.id):
+            if self.regenerating:
+                await interaction.response.send_message("The image is already being regenerated. Please wait.", ephemeral=True)
+                return
 
-        self.regenerating = True
-        await interaction.response.defer()
-        new_seed = random.randint(1, 1000)
-        image_url = await generate_image(self.prompt, self.negative, new_seed, self.steps)
-        if image_url:
-            embed = discord.Embed(title=f"Generated Image For {interaction.user.name}", color=discord.Color.random(), url=image_url, colour=discord.Color.dark_blue(), description=f"✍️ Prompt: {self.prompt}")
-            embed.set_image(url=image_url)
-            embed.set_footer(text='👑 Made by .puzzy. with 💖')
-            await interaction.edit_original_response(embed=embed)
+            self.regenerating = True
+            await interaction.response.defer()
+            new_seed = random.randint(1, 1000)
+            image_url = await generate_image(self.prompt, self.negative, new_seed, self.steps)
+            if image_url:
+                embed = discord.Embed(title=f"Generated Image For {interaction.user.name}", color=discord.Color.random(), url=image_url, colour=discord.Color.dark_blue(), description=f"✍️ Prompt: {self.prompt}")
+                embed.set_image(url=image_url)
+                embed.set_footer(text='👑 Made by .puzzy. with 💖')
+                await interaction.edit_original_response(embed=embed)
+            else:
+                await interaction.edit_original_response(embed=discord.Embed(title="Uh oh!", color=discord.Color.random(), description='Something went wrong, try again later.').set_footer(text='Made by .puzzy. with 💖'))
+            self.regenerating = False
         else:
-            await interaction.edit_original_response(embed=discord.Embed(title="Uh oh!", color=discord.Color.random(), description='Something went wrong, try again later.').set_footer(text='Made by .puzzy. with 💖'))
-        self.regenerating = False
+            await interaction.response.send_message(embed=discord.Embed(title="Uh oh!", description="You have hit the rate limit of 5 generations a minute. Please wait!", color=discord.Color.red()))
 
 
 @client.tree.command(
@@ -97,26 +121,28 @@ class ImageButtons(discord.ui.View):
     seed="What seed do you want to use?",
     steps="How many steps do you want to use?"
 )
-async def first_command(interaction: discord.Interaction, prompt: str, negative: str = "ugly, bad", seed: int = random.randint(1, 1000), steps: int = 15):
-    message = await interaction.response.send_message(embed=discord.Embed(title=f"Generating a {prompt}!", color=discord.Color.dark_blue()).set_footer(text="👑 Made by .puzzy. with 💖"))
-    if steps > 60:
-        steps = 60
-    elif steps < 10:
-        steps = 10
-    if 0 > seed:
-        seed = random.randint(1, 1000)
-    
-    # start image
-    image_url = await generate_image(prompt, negative, seed, steps)
-    if image_url:
-        embed=discord.Embed(title=f"Generated Image For {interaction.user.name}",color=discord.Color.random(),url=image_url,colour=discord.Color.dark_blue(), description=f"✍️ Prompt: {prompt}")
-        embed.set_image(url=image_url)
-        embed.set_footer(text='👑 Made by .puzzy. with 💖')
-        
-        view = ImageButtons(interaction, prompt, negative, seed, steps)
-        await interaction.edit_original_response(embed=embed, view=view)
+async def imagne_command(interaction: discord.Interaction, prompt: str, negative: str = "ugly, bad", seed: int = random.randint(1, 1000), steps: int = 15):
+    if check_rate_limit(interaction.user.id):
+        message = await interaction.response.send_message(embed=discord.Embed(title=f"Generating a {prompt}!", color=discord.Color.dark_blue()).set_footer(text="👑 Made by .puzzy. with 💖"))
+        if steps > 60:
+            steps = 60
+        elif steps < 10:
+            steps = 10
+        if 0 > seed:
+            seed = random.randint(1, 1000)
+        # start image
+        image_url = await generate_image(prompt, negative, seed, steps)
+        if image_url:
+            embed=discord.Embed(title=f"Generated Image For {interaction.user.name}",color=discord.Color.random(),url=image_url,colour=discord.Color.dark_blue(), description=f"✍️ Prompt: {prompt}")
+            embed.set_image(url=image_url)
+            embed.set_footer(text='👑 Made by .puzzy. with 💖')
+            
+            view = ImageButtons(interaction, prompt, negative, seed, steps)
+            await interaction.edit_original_response(embed=embed, view=view)
+        else:
+            await interaction.edit_original_response(embed=discord.Embed(title="Uh oh!",color=discord.Color.random(),description='Something went wrong, try again later.').set_footer(text='Made by .puzzy. with 💖'))
     else:
-        await interaction.edit_original_response(embed=discord.Embed(title="Uh oh!",color=discord.Color.random(),description='Something went wrong, try again later.').set_footer(text='Made by .puzzy. with 💖'))
+        await interaction.response.send_message(embed=discord.Embed(title="Uh oh!", description="You have hit the rate limit of 5 generations a minute. Please wait!", color=discord.Color.red()))
 
 @client.event
 async def on_ready():
