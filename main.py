@@ -8,7 +8,6 @@ import random
 
 proxy: str     = None # set proxy url here
 TOKEN: str     = None # bot token to run bot on 
-server_id: int = None # server to use bot in
 
 async def generate_image(prompt: str, negative: str = "", seed: int = None, steps: int = 15) -> str:
     """
@@ -51,13 +50,23 @@ async def generate_image(prompt: str, negative: str = "", seed: int = None, step
 
 #setup discord bot and run it
 intents        = discord.Intents.default()
+intents.message_content = True
 client         = discord.Client(intents=intents)
 tree           = app_commands.CommandTree(client)
 
-@tree.command(
+
+class DeleteButton(discord.ui.View):
+    def __init__(self, interaction):
+        super().__init__(timeout=None)
+        self.interaction = interaction
+
+    @discord.ui.button(label="Delete", style=discord.ButtonStyle.danger)
+    async def delete_callback(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.interaction.delete_original_response()
+        
+@client.tree.command(
     name="imagine",
     description="Use InterDiffusion-4.0 To Create An Image!",
-    guild=discord.Object(id=server_id)
 )
 @app_commands.describe(
     prompt="What do you want to make?",
@@ -80,18 +89,15 @@ async def first_command(interaction: discord.Interaction, prompt: str, negative:
         embed=discord.Embed(title=f"Generated Image For {interaction.user.name}",color=discord.Color.random(),url=image_url,colour=discord.Color.dark_blue(), description=f"✍️ Prompt: {prompt}")
         embed.set_image(url=image_url)
         embed.set_footer(text='👑 Made by .puzzy. with 💖')
-        # ugly embed.add_field(name="✍️ Prompt",value=f"{prompt}",inline=False)
-        # ugly embed.add_field(name="❌ Negative",value=f"{negative}",inline=False)
-        # ugly embed.add_field(name="🪜 Steps", value=steps, inline=False)
-        # ugly embed.add_field(name="🌱 Seed", value=seed, inline=False)
         
-        await interaction.edit_original_response(embed=embed)
+        view = DeleteButton(interaction)
+        await interaction.edit_original_response(embed=embed, view=view)
     else:
         await interaction.edit_original_response(embed=discord.Embed(title="Uh oh!",color=discord.Color.random(),description='Something went wrong, try again later.').set_footer(text='Made by .puzzy. with 💖'))
 
 @client.event
 async def on_ready():
-    await tree.sync(guild=discord.Object(id=server_id))
+    await tree.sync()
     print("Ready!")
 
 client.run(TOKEN)
