@@ -9,7 +9,7 @@ import random
 import time
 import re
 
-proxy          =  None # set proxy url here
+proxy          = None # set proxy url here
 TOKEN: str     = None # bot token to run bot on 
 
 
@@ -122,28 +122,36 @@ class ImageButtons(discord.ui.View):
     steps="How many steps do you want to use?"
 )
 async def imagne_command(interaction: discord.Interaction, prompt: str, negative: str = "ugly, bad", seed: int = random.randint(1, 1000), steps: int = 15):
-    if check_rate_limit(interaction.user.id):
-        message = await interaction.response.send_message(embed=discord.Embed(title=f"Generating a {prompt}!", color=discord.Color.dark_blue()).set_footer(text="👑 Made by .puzzy. with 💖"))
-        if steps > 60:
-            steps = 60
-        elif steps < 10:
-            steps = 10
-        if 0 > seed:
-            seed = random.randint(1, 1000)
-        # start image
-        image_url = await generate_image(prompt, negative, seed, steps)
-        if image_url:
-            embed=discord.Embed(title=f"Generated Image For {interaction.user.name}",color=discord.Color.random(),url=image_url,colour=discord.Color.dark_blue(), description=f"✍️ Prompt: {prompt}")
-            embed.set_image(url=image_url)
-            embed.set_footer(text='👑 Made by .puzzy. with 💖')
-            
-            view = ImageButtons(interaction, prompt, negative, seed, steps)
-            await interaction.edit_original_response(embed=embed, view=view)
+    try:
+        if check_rate_limit(interaction.user.id):
+            message = await interaction.response.send_message(embed=discord.Embed(title=f"Generating a {prompt}!", color=discord.Color.dark_blue()).set_footer(text="👑 Made by .puzzy. with 💖"))
+            if steps > 60:
+                steps = 60
+            elif steps < 10:
+                steps = 10
+            if 0 > seed:
+                seed = random.randint(1, 1000)
+            # start image
+            image_url = await generate_image(prompt, negative, seed, steps)
+            if image_url:
+                embed=discord.Embed(title=f"Generated Image For {interaction.user.name}",color=discord.Color.random(),url=image_url,colour=discord.Color.dark_blue(), description=f"✍️ Prompt: {prompt}")
+                embed.set_image(url=image_url)
+                embed.set_footer(text='👑 Made by .puzzy. with 💖')
+                
+                view = ImageButtons(interaction, prompt, negative, seed, steps)
+                await interaction.edit_original_response(embed=embed, view=view)
+            else:
+                await interaction.edit_original_response(embed=discord.Embed(title="Uh oh!",color=discord.Color.random(),description='Something went wrong, try again later.').set_footer(text='Made by .puzzy. with 💖'))
         else:
-            await interaction.edit_original_response(embed=discord.Embed(title="Uh oh!",color=discord.Color.random(),description='Something went wrong, try again later.').set_footer(text='Made by .puzzy. with 💖'))
-    else:
-        await interaction.response.send_message(embed=discord.Embed(title="Uh oh!", description="You have hit the rate limit of 5 generations a minute. Please wait!", color=discord.Color.red()))
-
+            await interaction.response.send_message(embed=discord.Embed(title="Uh oh!", description="You have hit the rate limit of 5 generations a minute. Please wait!", color=discord.Color.red()))
+    except discord.errors.HTTPException:
+        pass
+    
+@client.tree.command(name="ping", description="Get the bots ping")
+async def ping(interaction: discord.Interaction):
+    await interaction.response.send_message(embed=discord.Embed(title="My ping is...",description=f"{round(client.latency * 1000, 2)}ms!"))
+    
+    
 @client.event
 async def on_ready():
     await client.tree.sync()
