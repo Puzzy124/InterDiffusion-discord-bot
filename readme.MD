@@ -1,11 +1,9 @@
-# Discord Server Cloner
+# Discord InterDiffusion Bot
 
-A Python script to clone Discord servers. Please use responsibly and respect the terms of service of Discord.
+A Python Discord Bot using Discord.py to generate images with AnyAI's new InterDiffusion-4.0 model!
 
 ## Features
 
-- Clone channels, roles, permissions, and server settings
-- Customizable cloning options
 - Easy to set up and run
 
 ## Prerequisites
@@ -25,11 +23,6 @@ A Python script to clone Discord servers. Please use responsibly and respect the
 ## Usage
 
 1. Run the script: python main.py
-2. The bot will start the cloning process and create a new server with the cloned content.
-
-## Disclaimer
-
-This script is provided for educational purposes only. Misuse of this script may violate Discord's terms of service. Use it at your own risk. The authors of this script are not responsible for any consequences arising from the use or misuse of this script.
 
 ## License
 
